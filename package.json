@@ -1,12 +1,22 @@
 {
   "name": "caching-proxy",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "description": "A CLI caching proxy server built with Node.js",
+  "main": "src/cli.js",
+  "bin": {
+    "caching-proxy": "./src/cli.js"
   },
-  "keywords": [],
+  "scripts": {
+    "start": "node src/cli.js",
+    "dev": "nodemon src/cli.js",
+    "test": "echo \"No tests added yet\""
+  },
+  "keywords": [
+    "cli",
+    "proxy",
+    "cache",
+    "nodejs"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
