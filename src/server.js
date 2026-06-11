@@ -9,42 +9,55 @@ const {
 function startServer(port, origin) {
   const app = express(); // Creates the Express app
 
-  app.use(async (req, res) => {
-    const cacheKey = getCacheKey(req); // Creates a unique key for the current request
-    const cachedResponse = getFromCache(cacheKey); // Checks whether this request already has a cached response
+  app.use(express.json()); // Allows Express to read JSON request bodies for POST/PUT/PATCH requests
 
-    if (cachedResponse) {
-      res.set("X-Cache", "HIT"); // Tells the client this response came from cache
-      return res
-        .status(cachedResponse.status)
-        .send(cachedResponse.data); // Sends the saved response without calling the origin server
+  app.use(async (req, res) => {
+    const targetUrl = `${origin}${req.originalUrl}`; // Builds the full origin URL including path and query string
+    const isGetRequest = req.method === "GET"; // Only GET requests should be cached
+
+    if (isGetRequest) {
+      const cacheKey = getCacheKey(req); // Creates a unique cache key for this request
+      const cachedResponse = getFromCache(cacheKey); // Checks whether this request already exists in cache
+
+      if (cachedResponse) {
+        res.set("X-Cache", "HIT"); // Tells the client the response came from cache
+        return res.status(cachedResponse.status).send(cachedResponse.data); // Sends cached response and stops here
+      }
     }
 
-    const targetUrl = `${origin}${req.originalUrl}`; // Builds the full URL to request from the origin server
-
     try {
-      const response = await axios.get(targetUrl); // Forwards the request to the origin server
+      const response = await axios({
+        method: req.method, // Uses the same HTTP method as the incoming request
+        url: targetUrl, // Sends the request to the origin server
+        data: req.body, // Forwards the request body for POST/PUT/PATCH requests
+        validateStatus: () => true, // Prevents Axios from throwing errors for 4xx/5xx responses
+      });
 
-      const responseToCache = {
-        status: response.status,
-        data: response.data,
-      }; // Stores only the important response parts for now
+      if (isGetRequest) {
+        const cacheKey = getCacheKey(req); // Reuses the same request key for saving cache
 
-      saveToCache(cacheKey, responseToCache); // Saves the origin response for future matching requests
+        saveToCache(cacheKey, {
+          status: response.status,
+          data: response.data,
+        }); // Saves the origin response for future repeated GET requests
 
-      res.set("X-Cache", "MISS"); // Tells the client this response came from the origin server
+        res.set("X-Cache", "MISS"); // Tells the client this GET response came from the origin
+      } else {
+        res.set("X-Cache", "BYPASS"); // Tells the client this request was not cached
+      }
+
       res.status(response.status).send(response.data); // Sends the origin response back to the client
     } catch (error) {
-      const statusCode = error.response?.status || 500; // Uses origin error status if available
-      const message = error.response?.data || error.message; // Uses origin error body if available
-
-      res.status(statusCode).send(message); // Sends the error response back to the client
+      res.status(500).send({
+        error: "Failed to connect to origin server",
+        details: error.message,
+      }); // Handles network-level errors such as origin server being unreachable
     }
   });
 
   app.listen(port, () => {
-    console.log(`Caching proxy server running on http://localhost:${port}`); // Confirms the server started
-    console.log(`Origin server: ${origin}`); // Shows the origin server being proxied
+    console.log(`Caching proxy server running on http://localhost:${port}`); // Confirms the proxy server started
+    console.log(`Origin server: ${origin}`); // Shows which origin server is being proxied
   });
 }
 
