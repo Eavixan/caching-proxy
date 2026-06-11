@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+const { clearCache } = require("./cache"); // Imports the function that clears saved cache data
+
 const { startServer } = require("./server"); // Imports the function that starts the Express server
 
 const { Command } = require("commander"); // Imports Commander so we can define and parse CLI options
@@ -34,8 +36,9 @@ program.parse(process.argv); // Reads and parses the arguments entered in the te
 const options = program.opts(); // Stores the parsed options in a JavaScript object
 
 if (options.clearCache) {
-  console.log("Cache clearing is not implemented yet."); // Temporary response until cache functionality is added
-  process.exit(0); // Ends the command successfully after handling --clear-cache
+  clearCache(); // Clears the saved cache file
+  console.log("Cache cleared successfully."); // Confirms the cache was cleared
+  process.exit(0); // Exits because clearing cache does not need to start the server
 }
 
 if (!options.port || !options.origin) {
